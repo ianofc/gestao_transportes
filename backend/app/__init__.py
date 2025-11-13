@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from flask_cors import CORS
+from flask_cors import CORS # A importação continua
 from flask_jwt_extended import JWTManager
 from flask_bcrypt import Bcrypt
 from config import Config
@@ -9,7 +9,7 @@ from config import Config
 # Inicializa as extensões (sem app ainda)
 db = SQLAlchemy()
 migrate = Migrate()
-cors = CORS()
+# A linha 'cors = CORS()' foi REMOVIDA daqui
 jwt = JWTManager()
 bcrypt = Bcrypt()
 
@@ -27,7 +27,11 @@ def create_app(config_class=Config):
     # 2. Inicializa as extensões com a aplicação
     db.init_app(app)
     migrate.init_app(app, db)
-    cors.init_app(app, resources={r"/api/*": {"origins": "*"}})
+    
+    # CORREÇÃO: Inicializa o CORS diretamente na 'app'
+    # Isto é mais robusto que o método 'cors.init_app()'
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    
     jwt.init_app(app)
     bcrypt.init_app(app)
 
@@ -44,9 +48,17 @@ def create_app(config_class=Config):
     # Rotas do Módulo de Autenticação (ex: /api/auth/login)
     from app.routes.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    
+    # Rotas do Módulo Operacional
+    from app.routes.operacional import bp as operacional_bp
+    app.register_blueprint(operacional_bp, url_prefix='/api/operacional')
+    
+    # Rotas do Módulo de Vendas
+    from app.routes.vendas import bp as vendas_bp
+    app.register_blueprint(vendas_bp, url_prefix='/api/vendas')
+    
+    # NOVO REGISTO (Relatórios)
+    from app.routes.relatorios import bp as relatorios_bp
+    app.register_blueprint(relatorios_bp, url_prefix='/api/relatorios')
 
     return app
-
-# Importa os modelos no final.
-# Isso é crucial para evitar importações circulares com 'db'.
-from app import models

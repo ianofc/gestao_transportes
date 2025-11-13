@@ -113,6 +113,22 @@ class Viagem(db.Model):
     # Relacionamentos
     registros = db.relationship('RegistroOperacional', backref='viagem', lazy=True)
     vendas = db.relationship('Venda', backref='viagem', lazy=True)
+    
+    # Relações para aceder aos objetos (definidos em Rota, Onibus, Motorista)
+    rota = db.relationship('Rota', backref=db.backref('viagens_rel', lazy=True))
+    onibus = db.relationship('Onibus', backref=db.backref('viagens_rel', lazy=True))
+    motorista = db.relationship('Motorista', backref=db.backref('viagens_rel', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'rota': self.rota.to_dict() if self.rota else None,
+            'onibus': self.onibus.to_dict() if self.onibus else None,
+            'motorista': self.motorista.to_dict() if self.motorista else None,
+            'data_partida_prevista': self.data_partida_prevista.isoformat(),
+            'data_chegada_prevista': self.data_chegada_prevista.isoformat(),
+            'status': self.status
+        }
 
 class RegistroOperacional(db.Model):
     """ Anotações do Bilheteiro sobre a passagem do ônibus """
@@ -131,6 +147,24 @@ class RegistroOperacional(db.Model):
     pass_final = db.Column(db.Integer, default=0)
     
     observacoes = db.Column(db.Text, nullable=True)
+    
+    # Relação para aceder ao bilheteiro
+    bilheteiro_rel = db.relationship('Usuario', backref=db.backref('registros_rel', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'viagem_id': self.viagem_id,
+            'bilheteiro_id': self.bilheteiro_id,
+            'bilheteiro_nome': self.bilheteiro_rel.nome_completo if self.bilheteiro_rel else "N/A",
+            'data_hora_chegada_real': self.data_hora_chegada_real.isoformat() if self.data_hora_chegada_real else None,
+            'data_hora_saida_real': self.data_hora_saida_real.isoformat() if self.data_hora_saida_real else None,
+            'pass_chegaram': self.pass_chegaram,
+            'pass_embarcaram': self.pass_embarcaram,
+            'pass_desembarcaram': self.pass_desembarcaram,
+            'pass_final': self.pass_final,
+            'observacoes': self.observacoes
+        }
 
 class Venda(db.Model):
     """ Venda de Bilhetes/Passagens """
@@ -149,6 +183,19 @@ class Venda(db.Model):
     valor_passagem = db.Column(db.Float, nullable=False)
     metodo_pagamento = db.Column(db.String(30), nullable=False) # "Dinheiro", "Pix", "Cartão"
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'viagem_id': self.viagem_id,
+            'bilheteiro_id': self.bilheteiro_id,
+            'data_hora_venda': self.data_hora_venda.isoformat(),
+            'nome_passageiro': self.nome_passageiro,
+            'documento_passageiro': self.documento_passageiro,
+            'numero_poltrona': self.numero_poltrona,
+            'valor_passagem': self.valor_passagem,
+            'metodo_pagamento': self.metodo_pagamento
+        }
+
 class CaixaDiario(db.Model):
     """ Controle de Caixa do Bilheteiro """
     __tablename__ = 'caixa_diario'
@@ -157,14 +204,33 @@ class CaixaDiario(db.Model):
     bilheteiro_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     
     data_abertura = db.Column(db.DateTime, default=datetime.utcnow)
-    data_fechamento = db.Column(db.DateTime, nullable=True)
+    data_fechamento = db.Column(db.DateTime, nullable=True) # Verificando que a correção 'dbD' está OK
     
     saldo_inicial = db.Column(db.Float, default=0.0)
     
-    # Esses totais serão calculados no fechamento
+    # ... (totais) ...
     total_vendas_dinheiro = db.Column(db.Float, default=0.0)
     total_vendas_pix = db.Column(db.Float, default=0.0)
     total_vendas_cartao = db.Column(db.Float, default=0.0)
     total_geral_vendas = db.Column(db.Float, default=0.0)
     
     status = db.Column(db.String(20), default='Aberto') # "Aberto", "Fechado"
+    
+    # CORREÇÃO: A linha abaixo foi REMOVIDA para resolver o conflito
+    # bilheteiro = db.relationship('Usuario', backref=db.backref('caixas_rel', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'bilheteiro_id': self.bilheteiro_id,
+            # 'self.bilheteiro' continua a funcionar por causa do 'backref' em 'Usuario.caixas'
+            'bilheteiro_nome': self.bilheteiro.nome_completo if self.bilheteiro else "N/A", 
+            'data_abertura': self.data_abertura.isoformat(),
+            'data_fechamento': self.data_fechamento.isoformat() if self.data_fechamento else None,
+            'saldo_inicial': self.saldo_inicial,
+            'total_vendas_dinheiro': self.total_vendas_dinheiro,
+            'total_vendas_pix': self.total_vendas_pix,
+            'total_vendas_cartao': self.total_vendas_cartao,
+            'total_geral_vendas': self.total_geral_vendas,
+            'status': self.status
+        }
