@@ -1,56 +1,64 @@
 from flask import Blueprint, jsonify, request
-from app import db
+from app.extensions import db 
 from app.models import Motorista, Onibus, Rota
+from sqlalchemy.exc import IntegrityError
+# Importa o decorator de login
+from flask_jwt_extended import jwt_required
 
-# Cria um "Módulo" (Blueprint) chamado 'cadastros'
 bp = Blueprint('cadastros', __name__)
 
 # --- API CRUD: Motoristas ---
 
 @bp.route('/motoristas', methods=['POST'])
+@jwt_required() # Protegido
 def create_motorista():
-    """ Cria um novo motorista """
     data = request.get_json()
     if not data or not 'nome_completo' in data:
         return jsonify({'error': 'Dados incompletos'}), 400
     
     novo_motorista = Motorista(
         nome_completo=data['nome_completo'],
-        cpf=data.get('cpf'),
         contato=data.get('contato')
     )
-    db.session.add(novo_motorista)
-    db.session.commit()
-    return jsonify(novo_motorista.to_dict()), 201
+    try:
+        db.session.add(novo_motorista)
+        db.session.commit()
+        return jsonify(novo_motorista.to_dict()), 201
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'error': 'Este nome de motorista já está cadastrado.'}), 409
 
 @bp.route('/motoristas', methods=['GET'])
+@jwt_required() # Protegido
 def get_motoristas():
-    """ Lista todos os motoristas """
     motoristas = Motorista.query.all()
     return jsonify([m.to_dict() for m in motoristas]), 200
 
 @bp.route('/motoristas/<int:id>', methods=['GET'])
+@jwt_required() # Protegido
 def get_motorista(id):
-    """ Busca um motorista específico por ID """
     motorista = Motorista.query.get_or_404(id)
     return jsonify(motorista.to_dict()), 200
 
 @bp.route('/motoristas/<int:id>', methods=['PUT'])
+@jwt_required() # Protegido
 def update_motorista(id):
-    """ Atualiza um motorista """
     motorista = Motorista.query.get_or_404(id)
     data = request.get_json()
     
     motorista.nome_completo = data.get('nome_completo', motorista.nome_completo)
-    motorista.cpf = data.get('cpf', motorista.cpf)
     motorista.contato = data.get('contato', motorista.contato)
     
-    db.session.commit()
-    return jsonify(motorista.to_dict()), 200
+    try:
+        db.session.commit()
+        return jsonify(motorista.to_dict()), 200
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'error': 'Este nome de motorista já está cadastrado.'}), 409
 
 @bp.route('/motoristas/<int:id>', methods=['DELETE'])
+@jwt_required() # Protegido
 def delete_motorista(id):
-    """ Deleta um motorista """
     motorista = Motorista.query.get_or_404(id)
     db.session.delete(motorista)
     db.session.commit()
@@ -59,8 +67,8 @@ def delete_motorista(id):
 # --- API CRUD: Ônibus ---
 
 @bp.route('/onibus', methods=['POST'])
+@jwt_required() # Protegido
 def create_onibus():
-    """ Cria um novo ônibus """
     data = request.get_json()
     if not data or not 'numero_onibus' in data:
         return jsonify({'error': 'Número do ônibus é obrigatório'}), 400
@@ -71,25 +79,29 @@ def create_onibus():
         empresa_parceira=data.get('empresa_parceira', 'Guanabara'),
         capacidade=data.get('capacidade', 46)
     )
-    db.session.add(novo_onibus)
-    db.session.commit()
-    return jsonify(novo_onibus.to_dict()), 201
+    try:
+        db.session.add(novo_onibus)
+        db.session.commit()
+        return jsonify(novo_onibus.to_dict()), 201
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'error': 'Número do ônibus ou placa já cadastrado.'}), 409
 
 @bp.route('/onibus', methods=['GET'])
+@jwt_required() # Protegido
 def get_onibus_lista():
-    """ Lista todos os ônibus """
     onibus_lista = Onibus.query.all()
     return jsonify([o.to_dict() for o in onibus_lista]), 200
 
 @bp.route('/onibus/<int:id>', methods=['GET'])
+@jwt_required() # Protegido
 def get_onibus(id):
-    """ Busca um ônibus específico por ID """
     onibus = Onibus.query.get_or_404(id)
     return jsonify(onibus.to_dict()), 200
 
 @bp.route('/onibus/<int:id>', methods=['PUT'])
+@jwt_required() # Protegido
 def update_onibus(id):
-    """ Atualiza um ônibus """
     onibus = Onibus.query.get_or_404(id)
     data = request.get_json()
     
@@ -98,12 +110,16 @@ def update_onibus(id):
     onibus.empresa_parceira = data.get('empresa_parceira', onibus.empresa_parceira)
     onibus.capacidade = data.get('capacidade', onibus.capacidade)
     
-    db.session.commit()
-    return jsonify(onibus.to_dict()), 200
+    try:
+        db.session.commit()
+        return jsonify(onibus.to_dict()), 200
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'error': 'Número do ônibus ou placa já cadastrado.'}), 409
 
 @bp.route('/onibus/<int:id>', methods=['DELETE'])
+@jwt_required() # Protegido
 def delete_onibus(id):
-    """ Deleta um ônibus """
     onibus = Onibus.query.get_or_404(id)
     db.session.delete(onibus)
     db.session.commit()
@@ -112,8 +128,8 @@ def delete_onibus(id):
 # --- API CRUD: Rotas ---
 
 @bp.route('/rotas', methods=['POST'])
+@jwt_required() # Protegido
 def create_rota():
-    """ Cria uma nova rota """
     data = request.get_json()
     if not data or not 'origem' in data or not 'destino' in data:
         return jsonify({'error': 'Origem e Destino são obrigatórios'}), 400
@@ -128,20 +144,20 @@ def create_rota():
     return jsonify(nova_rota.to_dict()), 201
 
 @bp.route('/rotas', methods=['GET'])
+@jwt_required() # Protegido
 def get_rotas():
-    """ Lista todas as rotas """
     rotas = Rota.query.all()
     return jsonify([r.to_dict() for r in rotas]), 200
 
 @bp.route('/rotas/<int:id>', methods=['GET'])
+@jwt_required() # Protegido
 def get_rota(id):
-    """ Busca uma rota específica por ID """
     rota = Rota.query.get_or_404(id)
     return jsonify(rota.to_dict()), 200
 
 @bp.route('/rotas/<int:id>', methods=['PUT'])
+@jwt_required() # Protegido
 def update_rota(id):
-    """ Atualiza uma rota """
     rota = Rota.query.get_or_404(id)
     data = request.get_json()
     
@@ -153,8 +169,8 @@ def update_rota(id):
     return jsonify(rota.to_dict()), 200
 
 @bp.route('/rotas/<int:id>', methods=['DELETE'])
+@jwt_required() # Protegido
 def delete_rota(id):
-    """ Deleta uma rota """
     rota = Rota.query.get_or_404(id)
     db.session.delete(rota)
     db.session.commit()
